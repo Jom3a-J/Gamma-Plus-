@@ -1,0 +1,64 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+    id 'maven-publish'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    // Mod Menu
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
+}
+
+dependencies {
+    // Minecraft (unobfuscated, Mojang official mappings)
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    
+    // In 26.1+, standard Gradle configurations are used (implementation instead of modImplementation)
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    
+    // Fabric API
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Mod Menu (for config screen integration)
+    implementation("com.terraformersmc:modmenu:20.0.0-beta.2") {
+        transitive = false
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+
+

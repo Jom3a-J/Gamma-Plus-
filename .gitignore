@@ -1,0 +1,27 @@
+# Gradle build files
+.gradle/
+build/
+
+# Fabric Loom caches
+.gradle/loom-cache/
+.local.properties
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE configuration
+.idea/
+*.iml
+.vscode/
+
+# AI files, logs, and templates
+.skill-archive/
+.agents/
+.gemini/
+*.log
+nul
+
+# Markdown files (per user request to not upload md files)
+*.md
+docs/

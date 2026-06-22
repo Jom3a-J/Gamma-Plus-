@@ -1,0 +1,35 @@
+{
+    "schemaVersion": 1,
+    "id": "gammaplus",
+    "version": "${version}",
+    "name": "Gamma Plus",
+    "description": "Illuminate your world with precision. Gamma Plus is a sleek client-side utility featuring adjustable Gamma Boost, custom Night Vision, and shader-compatible Dynamic Lighting. Transitions are smoothed using a critically damped spring model with continuous ambient darkness detection (cave and night-time adaptation). Highly optimized and garbage-free for maximum performance.",
+    "authors": [
+        "Jom3a"
+    ],
+    "contact": {},
+    "license": "MIT",
+    "icon": "assets/gammaplus/icon.png",
+    "environment": "client",
+    "entrypoints": {
+        "client": [
+            "com.gammaplus.GammaModClient"
+        ],
+        "modmenu": [
+            "com.gammaplus.config.ModMenuApiImpl"
+        ]
+    },
+    "mixins": [
+        "gammaplus.mixins.json"
+    ],
+    "depends": {
+        "fabricloader": ">=0.19.0",
+        "minecraft": "~26.2",
+        "java": ">=25",
+        "fabric-api": ">=0.152.0"
+    },
+    "suggests": {
+        "iris": "*",
+        "modmenu": "*"
+    }
+}
