@@ -39,11 +39,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class UpdateChecker {
 
     /**
-     * The Modrinth project slug — the last path segment of the project URL.
-     * <b>Must match the real slug once the project is published</b>, or the check quietly 404s
-     * and no notice ever appears.
+     * The Modrinth project slug — the last path segment of the project URL, which is
+     * {@code gamma-plus} rather than the mod id {@code gammaplus}. If the project is ever renamed
+     * this must follow, or the check quietly 404s and no notice ever appears again.
      */
-    private static final String MODRINTH_SLUG = "gammaplus";
+    private static final String MODRINTH_SLUG = "gamma-plus";
 
     private static final String PROJECT_URL = "https://modrinth.com/mod/" + MODRINTH_SLUG;
 

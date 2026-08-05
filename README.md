@@ -102,7 +102,7 @@ Settings are stored in `config/gammaplus.json`. Configs written by an earlier bu
 
 
 ### 3. Setup Steps:
-1. Place `GammaPlus-1.0.0.jar` and the latest **Fabric API** (and optionally **Cloth Config** and **Mod Menu**) inside your `.minecraft/mods/` folder.
+1. Download the latest release from **[Modrinth](https://modrinth.com/mod/gamma-plus)**, and place it alongside the latest **Fabric API** (and optionally **Cloth Config** and **Mod Menu**) inside your `.minecraft/mods/` folder.
 2. Launch your Minecraft client.
 3. Press **`K`** in-game to open the settings, or use `G` / `N` / `L` to toggle features directly.
 

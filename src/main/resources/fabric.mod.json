@@ -7,7 +7,11 @@
     "authors": [
         "Jom3a"
     ],
-    "contact": {},
+    "contact": {
+        "homepage": "https://modrinth.com/mod/gamma-plus",
+        "sources": "https://github.com/Jom3a-J/Gamma-Plus-",
+        "issues": "https://github.com/Jom3a-J/Gamma-Plus-/issues"
+    },
     "license": "MIT",
     "icon": "assets/gammaplus/icon.png",
     "environment": "client",
