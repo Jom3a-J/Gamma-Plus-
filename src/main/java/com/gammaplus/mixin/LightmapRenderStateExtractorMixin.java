@@ -45,26 +45,47 @@ public abstract class LightmapRenderStateExtractorMixin {
     @Unique
     private static long lastShaderCheckMs = 0L;
 
-    /**
-     * HEAD injection: keep vanilla's needsUpdate true so extract()'s full body always runs.
-     * Without this, a value we boosted at TAIL would be frozen in renderState forever once
-     * vanilla's per-tick refresh lapses — manifesting as permanent fullbright with all
-     * toggles off.
-     */
-    @Inject(method = "extract", at = @At("HEAD"), require = 1)
-    private void gammaplus_forceRecompute(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
-        needsUpdate = true;
-    }
-
-    @Inject(method = "extract", at = @At("TAIL"), require = 1)
-    private void gammaplus_applyLightmapBoost(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
-        // Cache shader active state for 200ms to avoid reflection overhead in the render loop
+    /** Iris state sits behind reflection, so cache it for 200ms instead of querying per frame. */
+    @Unique
+    private static boolean gammaplus$shadersActive() {
         long now = System.currentTimeMillis();
         if (now - lastShaderCheckMs > 200L) {
             lastShaderCheckMs = now;
             cachedShadersActive = IrisCompat.areShadersActive();
         }
-        boolean shadersActive = cachedShadersActive;
+        return cachedShadersActive;
+    }
+
+    /** True when a feature would write to the render state on this frame. */
+    @Unique
+    private static boolean gammaplus$isActive() {
+        if (GammaModConfig.isNightVisionEnabled()) return true;
+        if (GammaModConfig.isGammaEnabled() && !gammaplus$shadersActive()) return true;
+        return GammaModConfig.isDynamicLightingEnabled()
+                || GammaModClient.getDynamicState().getValue() > 0.0001f;
+    }
+
+    /**
+     * HEAD injection: keep vanilla's needsUpdate true so extract()'s full body always runs.
+     * Without this, a value we boosted at TAIL would be frozen in renderState forever once
+     * vanilla's per-tick refresh lapses — manifesting as permanent fullbright with all
+     * toggles off.
+     *
+     * <p>Only forced while we are actually driving the lightmap, plus the one frame after we
+     * stop so vanilla's own value can take over. Forcing it unconditionally rebuilt and
+     * re-uploaded the lightmap texture on every single frame even with every feature switched
+     * off, making the mod cost frames just by being installed.
+     */
+    @Inject(method = "extract", at = @At("HEAD"), require = 1)
+    private void gammaplus_forceRecompute(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
+        if (gammaplus$isActive() || wasActive) {
+            needsUpdate = true;
+        }
+    }
+
+    @Inject(method = "extract", at = @At("TAIL"), require = 1)
+    private void gammaplus_applyLightmapBoost(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
+        boolean shadersActive = gammaplus$shadersActive();
 
         boolean gammaActive = GammaModConfig.isGammaEnabled() && !shadersActive;
         boolean nvActive = GammaModConfig.isNightVisionEnabled();
@@ -90,14 +111,14 @@ public abstract class LightmapRenderStateExtractorMixin {
         }
         wasActive = true;
 
-        boolean stateChanged = false;
-
         // --- Manual Night Vision ---
         if (nvActive) {
-            // Set night vision intensity to the configured value (0.0–1.0, matches the
-            // lightmap shader's mix(NightVisionFactor) uniform).
-            renderState.nightVisionEffectIntensity = (float) GammaModConfig.getNightVisionIntensity();
-            stateChanged = true;
+            // Night vision intensity is a 0.0–1.0 blend consumed by the lightmap shader's
+            // mix(NightVisionFactor) uniform. max(), not assignment: a real potion already at
+            // full strength must not be dimmed down to our slider value.
+            renderState.nightVisionEffectIntensity = Math.max(
+                    renderState.nightVisionEffectIntensity,
+                    (float) GammaModConfig.getNightVisionIntensity());
         }
 
         // --- Dynamic Lighting: drive brightness (no shaders) or NV (shaders) ---
@@ -108,9 +129,12 @@ public abstract class LightmapRenderStateExtractorMixin {
             } else {
                 // Under Iris the brightness uniform is a no-op; ramp NV intensity instead.
                 // The fake NV effect itself is kept present by GammaModClient.maintainFakeNightVision().
-                renderState.nightVisionEffectIntensity = Math.max(renderState.nightVisionEffectIntensity, dynamicValue);
+                // Clamped because the smoother shares gamma's 0–15 range and can still be above
+                // 1.0 while decaying if shaders were switched on mid-ramp.
+                renderState.nightVisionEffectIntensity = Math.max(
+                        renderState.nightVisionEffectIntensity,
+                        Math.min(1.0f, dynamicValue));
             }
-            stateChanged = true;
         }
 
         // --- Manual Gamma Boost ---
@@ -124,11 +148,9 @@ public abstract class LightmapRenderStateExtractorMixin {
             // fullbright-like effect. We take the max so we never darken whatever
             // vanilla already set.
             renderState.brightness = Math.max(renderState.brightness, factor);
-            stateChanged = true;
         }
 
-        if (stateChanged) {
-            renderState.needsUpdate = true;
-        }
+        // We reach here only when at least one feature wrote to the state.
+        renderState.needsUpdate = true;
     }
 }

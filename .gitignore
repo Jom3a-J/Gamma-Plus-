@@ -6,6 +6,9 @@ build/
 .gradle/loom-cache/
 .local.properties
 
+# Dev client/server game directory created by runClient / runServer
+run/
+
 # OS files
 Thumbs.db
 .DS_Store

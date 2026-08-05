@@ -30,6 +30,7 @@
     },
     "suggests": {
         "iris": "*",
-        "modmenu": "*"
+        "modmenu": "*",
+        "cloth-config": ">=26.2.0"
     }
 }
