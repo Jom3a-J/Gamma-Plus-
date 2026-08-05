@@ -1,6 +1,42 @@
 {
-    "category.gammaplus.controls": "Gamma Plus",
+    "key.category.gammaplus.controls": "Gamma Plus",
     "key.gammaplus.toggle_gamma": "Toggle Gamma Boost",
     "key.gammaplus.toggle_nightvision": "Toggle Night Vision",
-    "key.gammaplus.toggle_dynamic": "Toggle Dynamic Lighting"
+    "key.gammaplus.toggle_dynamic": "Toggle Dynamic Lighting",
+    "key.gammaplus.open_settings": "Open Settings Screen",
+
+    "title.gammaplus.config": "Gamma Plus",
+
+    "category.gammaplus.gamma": "Gamma Boost",
+    "category.gammaplus.nightvision": "Night Vision",
+    "category.gammaplus.dynamic": "Dynamic Lighting",
+
+    "option.gammaplus.gamma_enabled": "Enable Gamma Boost",
+    "option.gammaplus.gamma_enabled.tooltip": "Master toggle for the brightness boost. Also bound to the G key.",
+    "option.gammaplus.gamma_level": "Gamma Level",
+    "option.gammaplus.gamma_level.tooltip": "Brightness factor. 100% is a full bright-tone blend; higher values push past the lightmap clamp for maximum visibility in the dark.",
+
+    "option.gammaplus.nv_enabled": "Enable Night Vision",
+    "option.gammaplus.nv_enabled.tooltip": "Master toggle for the custom Night Vision effect. Also bound to the N key.",
+    "option.gammaplus.nv_intensity": "Night Vision Intensity",
+    "option.gammaplus.nv_intensity.tooltip": "Strength of the Night Vision blend. Floored at 10% so an enabled effect is always visible.",
+
+    "option.gammaplus.dynamic_enabled": "Enable Dynamic Lighting",
+    "option.gammaplus.dynamic_enabled.tooltip": "Ramp brightness automatically as your surroundings get darker. Also bound to the L key.",
+    "option.gammaplus.dynamic_high": "Dark Level",
+    "option.gammaplus.dynamic_high.tooltip": "Brightness ramped to in full darkness — deep caves, or night on the surface.",
+    "option.gammaplus.dynamic_normal": "Bright Level",
+    "option.gammaplus.dynamic_normal.tooltip": "Baseline brightness in full daylight on the surface. 0% leaves vanilla brightness untouched.",
+    "option.gammaplus.dynamic_rate": "Transition Speed",
+    "option.gammaplus.dynamic_rate.tooltip": "How quickly brightness adapts. Higher is snappier. Brightening is slower than dimming, mimicking eye adaptation.",
+    "option.gammaplus.dynamic_dark_light": "Full Boost Below Light",
+    "option.gammaplus.dynamic_dark_light.tooltip": "Light level at or below which the boost reaches full strength. An unlit cave is 0; open ground at midnight is about 4.",
+    "option.gammaplus.dynamic_bright_light": "No Boost Above Light",
+    "option.gammaplus.dynamic_bright_light.tooltip": "Light level at or above which no boost is applied. Midday is 15; lower this to keep the boost out of dim but usable areas.",
+    "option.gammaplus.dynamic_torch_influence": "Torch Influence",
+    "option.gammaplus.dynamic_torch_influence.tooltip": "How much torches and other placed light reduce the boost. 0% ignores them entirely, so only sky access and time of day matter. 100% counts them in full, which makes a single torch cancel the boost outright.",
+
+    "text.gammaplus.gamma.shader_warning": "⚠ Gamma Boost has no effect while a shader pack is active — use Night Vision instead.",
+    "text.gammaplus.nightvision.shader_note": "✓ Night Vision works with Iris shader packs.",
+    "text.gammaplus.dynamic.shader_note": "↳ Shaders are active, so Dynamic Lighting drives Night Vision instead of brightness."
 }

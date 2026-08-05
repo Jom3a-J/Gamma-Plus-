@@ -18,6 +18,11 @@ repositories {
         name = 'TerraformersMC'
         url = 'https://maven.terraformersmc.com/'
     }
+    // Cloth Config
+    maven {
+        name = 'Shedaniel'
+        url = 'https://maven.shedaniel.me/'
+    }
 }
 
 dependencies {
@@ -33,6 +38,28 @@ dependencies {
     // Mod Menu (for config screen integration)
     implementation("com.terraformersmc:modmenu:20.0.0-beta.2") {
         transitive = false
+    }
+
+    // Cloth Config — soft dependency, so compileOnly: we build against the API but never
+    // require it at runtime (see ConfigScreens). Keeping it off the dev runtime classpath also
+    // means `runClient` exercises the built-in screen and the class-loading guard by default;
+    // drop a Cloth jar into the run mods folder to exercise the Cloth path instead.
+    // Non-transitive: it would otherwise drag in its own Fabric API build.
+    compileOnly("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
+        transitive = false
+    }
+
+    // Unit tests cover the dependency-free logic only (see src/test/java), so no Minecraft
+    // runtime is needed and `gradlew test` stays fast.
+    testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
     }
 }
 

@@ -3,7 +3,6 @@
     "minVersion": "0.8",
     "package": "com.gammaplus.mixin",
     "compatibilityLevel": "JAVA_25",
-    "refmap": "gammaplus-refmap.json",
     "client": [
         "LightmapRenderStateExtractorMixin",
         "GameRendererMixin"

@@ -1,12 +1,14 @@
 package com.gammaplus;
 
 import com.gammaplus.compat.IrisCompat;
+import com.gammaplus.config.ConfigScreens;
 import com.gammaplus.config.GammaModConfig;
 import com.gammaplus.dynamic.DynamicLightingState;
 import com.gammaplus.dynamic.EnvironmentProbe;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
@@ -33,6 +35,7 @@ public class GammaModClient implements ClientModInitializer {
     private static KeyMapping gammaToggleKey;
     private static KeyMapping nightVisionToggleKey;
     private static KeyMapping dynamicLightingToggleKey;
+    private static KeyMapping openSettingsKey;
 
     /** Shared smoother instance — the Mixin reads this every frame. */
     private static final DynamicLightingState dynamicState = new DynamicLightingState();
@@ -46,6 +49,17 @@ public class GammaModClient implements ClientModInitializer {
      */
     private static final int FAKE_NV_DURATION = MobEffectInstance.INFINITE_DURATION;
 
+    /**
+     * The exact effect instance we applied, or {@code null} when we don't own one.
+     *
+     * <p>Ownership is tracked by identity rather than by inspecting the instance, because
+     * duration alone cannot tell our effect apart from a legitimate infinite one — a player
+     * who ran {@code /effect give @s night_vision infinite} has an effect that looks exactly
+     * like ours. {@code LivingEntity.addEffect} stores the instance we hand it verbatim when
+     * no effect of that type is present, so the reference stays valid.
+     */
+    private static MobEffectInstance fakeNvInstance = null;
+
     @Override
     public void onInitializeClient() {
         // Load config from disk
@@ -53,34 +67,55 @@ public class GammaModClient implements ClientModInitializer {
 
         // Register keymappings
         gammaToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.lumencraft.toggle_gamma",
+                "key.gammaplus.toggle_gamma",
                 InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_G,
                 CATEGORY
         ));
 
         nightVisionToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.lumencraft.toggle_nightvision",
+                "key.gammaplus.toggle_nightvision",
                 InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_N,
                 CATEGORY
         ));
 
         dynamicLightingToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.lumencraft.toggle_dynamic",
+                "key.gammaplus.toggle_dynamic",
                 InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_L,
+                CATEGORY
+        ));
+
+        // K sits beside the L used for Dynamic Lighting and is unbound in vanilla. Not O, which
+        // looks like the obvious choice for "Options" but is already vanilla's Social Interactions
+        // ("key.friends") binding.
+        openSettingsKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.gammaplus.open_settings",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_K,
                 CATEGORY
         ));
 
         // Register client tick handler
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
-        GammaMod.LOGGER.info("[Gamma Plus] Client initialized — Keybindings registered (G=Gamma, N=NightVision, L=DynamicLighting)");
+        // Keybind toggles save off-thread, so make sure a toggle made just before quitting
+        // still reaches disk.
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> GammaModConfig.flushPendingSave());
+
+        GammaMod.LOGGER.info("[Gamma Plus] Client initialized — Keybindings registered (G=Gamma, N=NightVision, L=DynamicLighting, K=Settings)");
     }
 
     private void onClientTick(Minecraft client) {
-        if (client.player == null) return;
+        if (client.player == null || client.level == null) {
+            // Not in a world. Drop the smoother state so the next world doesn't start at the
+            // brightness the last one ended on, and forget the effect reference — it belonged
+            // to a player entity that no longer exists.
+            dynamicState.reset();
+            fakeNvInstance = null;
+            return;
+        }
 
         // Handle keybind presses
         handleKeybinds(client);
@@ -94,11 +129,18 @@ public class GammaModClient implements ClientModInitializer {
     }
 
     private void handleKeybinds(Minecraft client) {
+        // Open the settings screen. Passing the current screen (null while playing) as the parent
+        // means closing the settings returns straight to the game.
+        while (openSettingsKey.consumeClick()) {
+            client.setScreenAndShow(ConfigScreens.create(client.gui.screen()));
+            return; // A screen is now open; leave the remaining toggles for the next tick.
+        }
+
         // Toggle gamma
         while (gammaToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isGammaEnabled();
             GammaModConfig.setGammaEnabled(newState);
-            GammaModConfig.save();
+            GammaModConfig.saveAsync();
 
             String status = newState ? "ON" : "OFF";
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
@@ -121,7 +163,7 @@ public class GammaModClient implements ClientModInitializer {
         while (nightVisionToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isNightVisionEnabled();
             GammaModConfig.setNightVisionEnabled(newState);
-            GammaModConfig.save();
+            GammaModConfig.saveAsync();
 
             String status = newState ? "ON" : "OFF";
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
@@ -136,7 +178,7 @@ public class GammaModClient implements ClientModInitializer {
         while (dynamicLightingToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isDynamicLightingEnabled();
             GammaModConfig.setDynamicLightingEnabled(newState);
-            GammaModConfig.save();
+            GammaModConfig.saveAsync();
 
             String status = newState ? "ON" : "OFF";
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
@@ -164,27 +206,28 @@ public class GammaModClient implements ClientModInitializer {
      * <p>This is self-healing against server effect-sync packets in multiplayer: if the
      * server strips our client-only effect, {@code existing} becomes {@code null} and we
      * re-add it on the very next client tick (worst case: a single-frame flicker). We
-     * never clobber a real NV effect (potion/beacon) the player actually has.
+     * never clobber a real NV effect (potion/beacon/command) the player actually has.
      */
     private void maintainFakeNightVision(Minecraft client) {
-        if (client.player == null) return;
-
         // Manual NV, or Dynamic Lighting actively driving NV under shaders, both need the effect.
         boolean wantsNV = GammaModConfig.isNightVisionEnabled()
                 || (GammaModConfig.isDynamicLightingEnabled() && IrisCompat.areShadersActive());
 
-        if (wantsNV) {
-            // Check if player already has night vision (real or our fake)
-            MobEffectInstance existing = client.player.getEffect(MobEffects.NIGHT_VISION);
+        MobEffectInstance existing = client.player.getEffect(MobEffects.NIGHT_VISION);
 
+        // Our instance is no longer the active one — the server stripped it, or a real potion
+        // replaced it. Drop the stale reference so we stop claiming ownership of whatever is
+        // there now.
+        if (fakeNvInstance != null && existing != fakeNvInstance) {
+            fakeNvInstance = null;
+        }
+
+        if (wantsNV) {
             // Apply only when there's no NV at all. An infinite-duration fake never needs
             // refreshing (vanilla doesn't tick it down), so the old "running low" check is gone.
-            // We deliberately do NOT interfere with a real NV effect (potion/beacon).
-            boolean needsApply = existing == null;
-
-            if (needsApply) {
+            // We deliberately do NOT interfere with an NV effect the player got elsewhere.
+            if (existing == null) {
                 // No particles, no icon — invisible to the player except for the brightness.
-                // Infinite duration is also our unique marker (see isFakeNightVision).
                 MobEffectInstance fakeNV = new MobEffectInstance(
                         MobEffects.NIGHT_VISION,
                         FAKE_NV_DURATION,
@@ -193,14 +236,14 @@ public class GammaModClient implements ClientModInitializer {
                         false,   // showParticles
                         false    // showIcon
                 );
-                client.player.addEffect(fakeNV);
+                if (client.player.addEffect(fakeNV)) {
+                    fakeNvInstance = fakeNV;
+                }
             }
-        } else {
-            // NV disabled — remove our fake effect if present
-            MobEffectInstance existing = client.player.getEffect(MobEffects.NIGHT_VISION);
-            if (existing != null && isFakeNightVision(existing)) {
-                client.player.removeEffect(MobEffects.NIGHT_VISION);
-            }
+        } else if (fakeNvInstance != null) {
+            // NV disabled — remove our fake effect. Anything we don't own is left alone.
+            client.player.removeEffect(MobEffects.NIGHT_VISION);
+            fakeNvInstance = null;
         }
     }
 
@@ -224,17 +267,32 @@ public class GammaModClient implements ClientModInitializer {
     }
 
     /**
-     * Checks if the given MobEffectInstance is our fake Night Vision effect
-     * by checking for our unique duration marker.
-     */
-    /**
-     * Checks if the given MobEffectInstance is our fake Night Vision effect.
+     * Checks whether the given instance is the fake Night Vision effect we applied.
      *
-     * <p>We use vanilla's infinite duration (-1) as the marker, so this is simply
-     * {@link MobEffectInstance#isInfiniteDuration()}. Real NV from potions/beacons has a
-     * finite countdown duration, so this never mis-identifies a real effect as ours.
+     * <p>Compared by identity: an infinite duration is not a usable marker, because
+     * {@code /effect give <player> night_vision infinite} produces an effect indistinguishable
+     * from ours by any of its fields. Treating that as ours meant we deleted it and drove its
+     * brightness from our own sliders.
      */
-    private static boolean isFakeNightVision(MobEffectInstance instance) {
-        return instance.isInfiniteDuration();
+    public static boolean isFakeNightVision(MobEffectInstance instance) {
+        return instance != null && instance == fakeNvInstance;
+    }
+
+    /**
+     * The intensity our fake Night Vision effect should render at.
+     *
+     * <p>Clamped to 0.0–1.0 because this feeds the lightmap's {@code NightVisionFactor} blend
+     * uniform. Dynamic Lighting only contributes under shaders — that is the case where the
+     * brightness path is a no-op, and it's also the only case where the smoother's target is
+     * capped to 1.0 rather than sharing gamma's 0–15 range.
+     */
+    public static float getEffectiveNightVisionIntensity() {
+        float intensity = GammaModConfig.isNightVisionEnabled()
+                ? (float) GammaModConfig.getNightVisionIntensity()
+                : 0.0f;
+        if (GammaModConfig.isDynamicLightingEnabled() && IrisCompat.areShadersActive()) {
+            intensity = Math.max(intensity, dynamicState.getValue());
+        }
+        return Math.max(0.0f, Math.min(1.0f, intensity));
     }
 }

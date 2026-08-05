@@ -42,7 +42,17 @@ public final class DynamicLightingState {
      * @param stiffness natural frequency omega of the spring (controls stiffness/speed)
      */
     public synchronized void update(double stiffness) {
-        long now = System.nanoTime();
+        update(stiffness, System.nanoTime());
+    }
+
+    /**
+     * Time-injectable core of {@link #update(double)}.
+     *
+     * <p>Package-private so tests can drive exact frame deltas rather than racing the wall clock —
+     * the framerate-independence claim is otherwise untestable.
+     */
+    synchronized void update(double stiffness, long nowNanos) {
+        long now = nowNanos;
         if (lastUpdateNanos < 0L) {
             lastUpdateNanos = now;
             return;
