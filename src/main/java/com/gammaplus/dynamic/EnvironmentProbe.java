@@ -38,7 +38,8 @@ public final class EnvironmentProbe {
         BlockPos.MutableBlockPos mutablePos = MUTABLE_POS.get();
         mutablePos.set(player.getX(), player.getEyeY(), player.getZ());
 
-        float light = sampleEffectiveLight(level, mutablePos, skyDarken(level));
+        float light = sampleEffectiveLight(level, mutablePos, skyDarken(level),
+                (float) GammaModConfig.getDynamicBlockLightInfluence());
         return DarknessCurve.darkness(light,
                 GammaModConfig.getDynamicDarkLightLevel(),
                 GammaModConfig.getDynamicBrightLightLevel());
@@ -74,26 +75,28 @@ public final class EnvironmentProbe {
      * wall. Taking the brightest sample is also what vanilla does for its own local-brightness
      * checks, and it keeps a doorway or a torch just out of reach from being averaged away.
      */
-    private static float sampleEffectiveLight(ClientLevel level, BlockPos.MutableBlockPos pos, float skyDarken) {
+    private static float sampleEffectiveLight(ClientLevel level, BlockPos.MutableBlockPos pos,
+                                              float skyDarken, float blockInfluence) {
         int centerX = pos.getX();
         int centerY = pos.getY();
         int centerZ = pos.getZ();
 
-        float best = effectiveLightAt(level, pos, skyDarken);
-        best = Math.max(best, effectiveLightAt(level, pos.set(centerX, centerY, centerZ - 1), skyDarken));
-        best = Math.max(best, effectiveLightAt(level, pos.set(centerX, centerY, centerZ + 1), skyDarken));
-        best = Math.max(best, effectiveLightAt(level, pos.set(centerX + 1, centerY, centerZ), skyDarken));
-        best = Math.max(best, effectiveLightAt(level, pos.set(centerX - 1, centerY, centerZ), skyDarken));
+        float best = effectiveLightAt(level, pos, skyDarken, blockInfluence);
+        best = Math.max(best, effectiveLightAt(level, pos.set(centerX, centerY, centerZ - 1), skyDarken, blockInfluence));
+        best = Math.max(best, effectiveLightAt(level, pos.set(centerX, centerY, centerZ + 1), skyDarken, blockInfluence));
+        best = Math.max(best, effectiveLightAt(level, pos.set(centerX + 1, centerY, centerZ), skyDarken, blockInfluence));
+        best = Math.max(best, effectiveLightAt(level, pos.set(centerX - 1, centerY, centerZ), skyDarken, blockInfluence));
 
         // Restore the centre position to avoid side effects for the caller.
         pos.set(centerX, centerY, centerZ);
         return best;
     }
 
-    private static float effectiveLightAt(ClientLevel level, BlockPos pos, float skyDarken) {
+    private static float effectiveLightAt(ClientLevel level, BlockPos pos, float skyDarken, float blockInfluence) {
         return DarknessCurve.effectiveLight(
                 level.getBrightness(LightLayer.BLOCK, pos),
                 level.getBrightness(LightLayer.SKY, pos),
-                skyDarken);
+                skyDarken,
+                blockInfluence);
     }
 }

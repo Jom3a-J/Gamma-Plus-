@@ -176,6 +176,15 @@ public final class ClothConfigScreen {
                 .setTooltip(Component.translatable("option.gammaplus.dynamic_bright_light.tooltip"))
                 .setSaveConsumer(GammaModConfig::setDynamicBrightLightLevel)
                 .build());
+
+        category.addEntry(entries.startIntSlider(
+                        Component.translatable("option.gammaplus.dynamic_torch_influence"),
+                        toPercent(GammaModConfig.getDynamicBlockLightInfluence()), 0, 100)
+                .setDefaultValue(toPercent(GammaModConfig.DEFAULT_DYNAMIC_BLOCK_LIGHT_INFLUENCE))
+                .setTextGetter(ClothConfigScreen::percentText)
+                .setTooltip(Component.translatable("option.gammaplus.dynamic_torch_influence.tooltip"))
+                .setSaveConsumer(value -> GammaModConfig.setDynamicBlockLightInfluence(fromPercent(value)))
+                .build());
     }
 
     private static int toPercent(double level) {

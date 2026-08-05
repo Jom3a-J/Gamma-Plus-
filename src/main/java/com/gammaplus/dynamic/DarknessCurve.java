@@ -21,20 +21,29 @@ public final class DarknessCurve {
     public static final int MAX_LIGHT = 15;
 
     /**
-     * The light level the player can actually see by, matching vanilla's raw-brightness rule.
+     * The light level the player can actually see by, following vanilla's raw-brightness rule.
      *
      * <p>Sky light is stored time-independently — it stays 15 under open sky at midnight — so it
      * only becomes meaningful once {@code skyDarken} is subtracted. Block light needs no such
-     * adjustment: a torch is as bright at midnight as at noon. The brighter of the two wins.
+     * adjustment: a torch is as bright at midnight as at noon. The brighter source wins.
      *
-     * @param blockLight block-layer light, 0–15
-     * @param skyLight   sky-layer light, 0–15
-     * @param skyDarken  how far the sky is currently darkened by time of day and weather, 0–15
+     * <p>Block light is scaled by {@code blockLightInfluence} first, because taking it at face
+     * value makes a single torch cancel the boost outright — the torch alone reads 13–14, above
+     * any useful bright threshold. Scaling lets placed light dim the boost proportionally instead
+     * of extinguishing it, and {@code 0.0} opts out of that behaviour entirely, leaving detection
+     * purely a matter of sky access and time.
+     *
+     * @param blockLight          block-layer light, 0–15
+     * @param skyLight            sky-layer light, 0–15
+     * @param skyDarken           how far the sky is darkened by time of day and weather, 0–15
+     * @param blockLightInfluence how much placed light counts, 0.0 (not at all) to 1.0 (fully)
      * @return effective light, 0–15
      */
-    public static float effectiveLight(float blockLight, float skyLight, float skyDarken) {
+    public static float effectiveLight(float blockLight, float skyLight, float skyDarken,
+                                       float blockLightInfluence) {
         float fromSky = Math.max(0.0f, skyLight - skyDarken);
-        return clamp(Math.max(blockLight, fromSky), 0.0f, MAX_LIGHT);
+        float fromBlocks = blockLight * clamp(blockLightInfluence, 0.0f, 1.0f);
+        return clamp(Math.max(fromBlocks, fromSky), 0.0f, MAX_LIGHT);
     }
 
     /**

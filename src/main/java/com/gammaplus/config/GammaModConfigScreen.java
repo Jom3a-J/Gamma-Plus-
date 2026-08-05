@@ -71,6 +71,7 @@ public class GammaModConfigScreen extends OptionsSubScreen {
         this.list.addSmall(dynamicEnabled(), dynamicHighLevel());
         this.list.addSmall(dynamicNormalLevel(), dynamicRate());
         this.list.addSmall(dynamicDarkLight(), dynamicBrightLight());
+        this.list.addSmall(dynamicBlockLightInfluence());
     }
 
     @Override
@@ -183,6 +184,16 @@ public class GammaModConfigScreen extends OptionsSubScreen {
                 new OptionInstance.IntRange(1, DarknessCurve.MAX_LIGHT),
                 GammaModConfig.getDynamicBrightLightLevel(),
                 GammaModConfig::setDynamicBrightLightLevel);
+    }
+
+    private static OptionInstance<Integer> dynamicBlockLightInfluence() {
+        return new OptionInstance<>(
+                "option.gammaplus.dynamic_torch_influence",
+                tooltip("option.gammaplus.dynamic_torch_influence.tooltip"),
+                (caption, value) -> Options.genericValueLabel(caption, Component.literal(value + "%")),
+                new OptionInstance.IntRange(0, 100),
+                (int) Math.round(GammaModConfig.getDynamicBlockLightInfluence() * 100),
+                value -> GammaModConfig.setDynamicBlockLightInfluence(value / 100.0));
     }
 
     // === Helpers ===

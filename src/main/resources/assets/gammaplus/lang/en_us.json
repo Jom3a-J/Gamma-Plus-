@@ -3,6 +3,7 @@
     "key.gammaplus.toggle_gamma": "Toggle Gamma Boost",
     "key.gammaplus.toggle_nightvision": "Toggle Night Vision",
     "key.gammaplus.toggle_dynamic": "Toggle Dynamic Lighting",
+    "key.gammaplus.open_settings": "Open Settings Screen",
 
     "title.gammaplus.config": "Gamma Plus",
 
@@ -32,6 +33,8 @@
     "option.gammaplus.dynamic_dark_light.tooltip": "Light level at or below which the boost reaches full strength. An unlit cave is 0; open ground at midnight is about 4.",
     "option.gammaplus.dynamic_bright_light": "No Boost Above Light",
     "option.gammaplus.dynamic_bright_light.tooltip": "Light level at or above which no boost is applied. Midday is 15; lower this to keep the boost out of dim but usable areas.",
+    "option.gammaplus.dynamic_torch_influence": "Torch Influence",
+    "option.gammaplus.dynamic_torch_influence.tooltip": "How much torches and other placed light reduce the boost. 0% ignores them entirely, so only sky access and time of day matter. 100% counts them in full, which makes a single torch cancel the boost outright.",
 
     "text.gammaplus.gamma.shader_warning": "⚠ Gamma Boost has no effect while a shader pack is active — use Night Vision instead.",
     "text.gammaplus.nightvision.shader_note": "✓ Night Vision works with Iris shader packs.",

@@ -1,6 +1,7 @@
 package com.gammaplus;
 
 import com.gammaplus.compat.IrisCompat;
+import com.gammaplus.config.ConfigScreens;
 import com.gammaplus.config.GammaModConfig;
 import com.gammaplus.dynamic.DynamicLightingState;
 import com.gammaplus.dynamic.EnvironmentProbe;
@@ -34,6 +35,7 @@ public class GammaModClient implements ClientModInitializer {
     private static KeyMapping gammaToggleKey;
     private static KeyMapping nightVisionToggleKey;
     private static KeyMapping dynamicLightingToggleKey;
+    private static KeyMapping openSettingsKey;
 
     /** Shared smoother instance — the Mixin reads this every frame. */
     private static final DynamicLightingState dynamicState = new DynamicLightingState();
@@ -85,6 +87,16 @@ public class GammaModClient implements ClientModInitializer {
                 CATEGORY
         ));
 
+        // K sits beside the L used for Dynamic Lighting and is unbound in vanilla. Not O, which
+        // looks like the obvious choice for "Options" but is already vanilla's Social Interactions
+        // ("key.friends") binding.
+        openSettingsKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.gammaplus.open_settings",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_K,
+                CATEGORY
+        ));
+
         // Register client tick handler
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
@@ -92,7 +104,7 @@ public class GammaModClient implements ClientModInitializer {
         // still reaches disk.
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> GammaModConfig.flushPendingSave());
 
-        GammaMod.LOGGER.info("[Gamma Plus] Client initialized — Keybindings registered (G=Gamma, N=NightVision, L=DynamicLighting)");
+        GammaMod.LOGGER.info("[Gamma Plus] Client initialized — Keybindings registered (G=Gamma, N=NightVision, L=DynamicLighting, K=Settings)");
     }
 
     private void onClientTick(Minecraft client) {
@@ -117,6 +129,13 @@ public class GammaModClient implements ClientModInitializer {
     }
 
     private void handleKeybinds(Minecraft client) {
+        // Open the settings screen. Passing the current screen (null while playing) as the parent
+        // means closing the settings returns straight to the game.
+        while (openSettingsKey.consumeClick()) {
+            client.setScreenAndShow(ConfigScreens.create(client.gui.screen()));
+            return; // A screen is now open; leave the remaining toggles for the next tick.
+        }
+
         // Toggle gamma
         while (gammaToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isGammaEnabled();

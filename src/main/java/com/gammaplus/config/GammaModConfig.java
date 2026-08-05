@@ -60,6 +60,14 @@ public class GammaModConfig {
     public static final int     DEFAULT_DYNAMIC_DARK_LIGHT   = 4;
     /** Light level at or above which no boost is applied. Well short of midday's 15. */
     public static final int     DEFAULT_DYNAMIC_BRIGHT_LIGHT = 12;
+    /**
+     * How much placed light counts toward "it is bright here", 0.0–1.0.
+     *
+     * <p>Half by default. At 1.0 a single torch reads 13–14 and cancels the boost outright, which
+     * is technically correct and unpleasant to play with; halving it leaves a torch-lit cave near
+     * half boost while a fully lit room still drops well below that.
+     */
+    public static final double  DEFAULT_DYNAMIC_BLOCK_LIGHT_INFLUENCE = 0.5;
 
     private static ConfigData config = new ConfigData();
 
@@ -92,6 +100,7 @@ public class GammaModConfig {
     public static double  getDynamicTransitionRate()    { return config.dynamicTransitionRate; }
     public static int     getDynamicDarkLightLevel()    { return config.dynamicDarkLightLevel; }
     public static int     getDynamicBrightLightLevel()  { return config.dynamicBrightLightLevel; }
+    public static double  getDynamicBlockLightInfluence() { return config.dynamicBlockLightInfluence; }
 
     // === Dynamic Lighting setters ===
     public static void setDynamicLightingEnabled(boolean enabled) { config.dynamicLightingEnabled = enabled; }
@@ -110,6 +119,10 @@ public class GammaModConfig {
         config.dynamicDarkLightLevel = Math.min(config.dynamicBrightLightLevel - 1, config.dynamicDarkLightLevel);
     }
 
+    public static void setDynamicBlockLightInfluence(double influence) {
+        config.dynamicBlockLightInfluence = Math.max(0.0, Math.min(1.0, influence));
+    }
+
     // === JSON Serialization Model ===
     private static class ConfigData {
         private boolean gammaEnabled = DEFAULT_GAMMA_ENABLED;
@@ -124,6 +137,7 @@ public class GammaModConfig {
         private double  dynamicTransitionRate  = DEFAULT_DYNAMIC_RATE;
         private int     dynamicDarkLightLevel   = DEFAULT_DYNAMIC_DARK_LIGHT;
         private int     dynamicBrightLightLevel = DEFAULT_DYNAMIC_BRIGHT_LIGHT;
+        private double  dynamicBlockLightInfluence = DEFAULT_DYNAMIC_BLOCK_LIGHT_INFLUENCE;
 
         // Superseded thresholds from the split cave/night model, boxed so that "absent from the
         // file" is distinguishable from "present and zero". Read once by migrateThresholds() and
@@ -138,6 +152,7 @@ public class GammaModConfig {
             dynamicNormalLevel = Math.max(0.0, Math.min(GAMMA_MAX, dynamicNormalLevel));
             dynamicTransitionRate = Math.max(0.1, Math.min(RATE_MAX, dynamicTransitionRate));
 
+            dynamicBlockLightInfluence = Math.max(0.0, Math.min(1.0, dynamicBlockLightInfluence));
             dynamicDarkLightLevel = Math.max(0, Math.min(DarknessCurve.MAX_LIGHT - 1, dynamicDarkLightLevel));
             dynamicBrightLightLevel = Math.max(1, Math.min(DarknessCurve.MAX_LIGHT, dynamicBrightLightLevel));
             if (dynamicBrightLightLevel <= dynamicDarkLightLevel) {
