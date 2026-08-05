@@ -39,28 +39,11 @@ public abstract class LightmapRenderStateExtractorMixin {
     @Unique
     private static boolean wasActive = false;
 
-    @Unique
-    private static boolean cachedShadersActive = false;
-
-    @Unique
-    private static long lastShaderCheckMs = 0L;
-
-    /** Iris state sits behind reflection, so cache it for 200ms instead of querying per frame. */
-    @Unique
-    private static boolean gammaplus$shadersActive() {
-        long now = System.currentTimeMillis();
-        if (now - lastShaderCheckMs > 200L) {
-            lastShaderCheckMs = now;
-            cachedShadersActive = IrisCompat.areShadersActive();
-        }
-        return cachedShadersActive;
-    }
-
     /** True when a feature would write to the render state on this frame. */
     @Unique
     private static boolean gammaplus$isActive() {
         if (GammaModConfig.isNightVisionEnabled()) return true;
-        if (GammaModConfig.isGammaEnabled() && !gammaplus$shadersActive()) return true;
+        if (GammaModConfig.isGammaEnabled() && !IrisCompat.areShadersActive()) return true;
         return GammaModConfig.isDynamicLightingEnabled()
                 || GammaModClient.getDynamicState().getValue() > 0.0001f;
     }
@@ -85,7 +68,7 @@ public abstract class LightmapRenderStateExtractorMixin {
 
     @Inject(method = "extract", at = @At("TAIL"), require = 1)
     private void gammaplus_applyLightmapBoost(LightmapRenderState renderState, float partialTicks, CallbackInfo ci) {
-        boolean shadersActive = gammaplus$shadersActive();
+        boolean shadersActive = IrisCompat.areShadersActive();
 
         boolean gammaActive = GammaModConfig.isGammaEnabled() && !shadersActive;
         boolean nvActive = GammaModConfig.isNightVisionEnabled();

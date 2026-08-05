@@ -9,6 +9,9 @@ build/
 # Dev client/server game directory created by runClient / runServer
 run/
 
+# Client logs, which Minecraft writes relative to the working directory
+logs/
+
 # Built mod jars copied to the project root for distribution.
 # Root-only, so gradle/wrapper/gradle-wrapper.jar stays tracked.
 /*.jar

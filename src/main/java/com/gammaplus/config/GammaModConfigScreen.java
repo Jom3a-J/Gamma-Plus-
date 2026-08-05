@@ -1,6 +1,7 @@
 package com.gammaplus.config;
 
 import com.gammaplus.compat.IrisCompat;
+import com.gammaplus.dynamic.DarknessCurve;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
@@ -69,7 +70,7 @@ public class GammaModConfigScreen extends OptionsSubScreen {
         }
         this.list.addSmall(dynamicEnabled(), dynamicHighLevel());
         this.list.addSmall(dynamicNormalLevel(), dynamicRate());
-        this.list.addSmall(dynamicCaveSkylight(), dynamicNightDarkness());
+        this.list.addSmall(dynamicDarkLight(), dynamicBrightLight());
     }
 
     @Override
@@ -164,24 +165,24 @@ public class GammaModConfigScreen extends OptionsSubScreen {
                 value -> GammaModConfig.setDynamicTransitionRate(value / 10.0));
     }
 
-    private static OptionInstance<Integer> dynamicCaveSkylight() {
+    private static OptionInstance<Integer> dynamicDarkLight() {
         return new OptionInstance<>(
-                "option.gammaplus.dynamic_cave",
-                tooltip("option.gammaplus.dynamic_cave.tooltip"),
+                "option.gammaplus.dynamic_dark_light",
+                tooltip("option.gammaplus.dynamic_dark_light.tooltip"),
                 Options::genericValueLabel,
-                new OptionInstance.IntRange(0, 15),
-                GammaModConfig.getDynamicCaveSkylightMax(),
-                GammaModConfig::setDynamicCaveSkylightMax);
+                new OptionInstance.IntRange(0, DarknessCurve.MAX_LIGHT - 1),
+                GammaModConfig.getDynamicDarkLightLevel(),
+                GammaModConfig::setDynamicDarkLightLevel);
     }
 
-    private static OptionInstance<Integer> dynamicNightDarkness() {
+    private static OptionInstance<Integer> dynamicBrightLight() {
         return new OptionInstance<>(
-                "option.gammaplus.dynamic_night",
-                tooltip("option.gammaplus.dynamic_night.tooltip"),
+                "option.gammaplus.dynamic_bright_light",
+                tooltip("option.gammaplus.dynamic_bright_light.tooltip"),
                 Options::genericValueLabel,
-                new OptionInstance.IntRange(0, 4),
-                GammaModConfig.getDynamicNightDarknessMin(),
-                GammaModConfig::setDynamicNightDarknessMin);
+                new OptionInstance.IntRange(1, DarknessCurve.MAX_LIGHT),
+                GammaModConfig.getDynamicBrightLightLevel(),
+                GammaModConfig::setDynamicBrightLightLevel);
     }
 
     // === Helpers ===

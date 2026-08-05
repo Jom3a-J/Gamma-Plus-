@@ -7,6 +7,7 @@ import com.gammaplus.dynamic.EnvironmentProbe;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
@@ -87,6 +88,10 @@ public class GammaModClient implements ClientModInitializer {
         // Register client tick handler
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
+        // Keybind toggles save off-thread, so make sure a toggle made just before quitting
+        // still reaches disk.
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> GammaModConfig.flushPendingSave());
+
         GammaMod.LOGGER.info("[Gamma Plus] Client initialized — Keybindings registered (G=Gamma, N=NightVision, L=DynamicLighting)");
     }
 
@@ -116,7 +121,7 @@ public class GammaModClient implements ClientModInitializer {
         while (gammaToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isGammaEnabled();
             GammaModConfig.setGammaEnabled(newState);
-            GammaModConfig.save();
+            GammaModConfig.saveAsync();
 
             String status = newState ? "ON" : "OFF";
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
@@ -139,7 +144,7 @@ public class GammaModClient implements ClientModInitializer {
         while (nightVisionToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isNightVisionEnabled();
             GammaModConfig.setNightVisionEnabled(newState);
-            GammaModConfig.save();
+            GammaModConfig.saveAsync();
 
             String status = newState ? "ON" : "OFF";
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
@@ -154,7 +159,7 @@ public class GammaModClient implements ClientModInitializer {
         while (dynamicLightingToggleKey.consumeClick()) {
             boolean newState = !GammaModConfig.isDynamicLightingEnabled();
             GammaModConfig.setDynamicLightingEnabled(newState);
-            GammaModConfig.save();
+            GammaModConfig.saveAsync();
 
             String status = newState ? "ON" : "OFF";
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;

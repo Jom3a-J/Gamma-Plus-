@@ -48,6 +48,19 @@ dependencies {
     compileOnly("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
         transitive = false
     }
+
+    // Unit tests cover the dependency-free logic only (see src/test/java), so no Minecraft
+    // runtime is needed and `gradlew test` stays fast.
+    testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
 }
 
 processResources {

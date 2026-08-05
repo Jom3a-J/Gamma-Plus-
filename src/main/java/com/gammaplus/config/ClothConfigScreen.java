@@ -1,6 +1,7 @@
 package com.gammaplus.config;
 
 import com.gammaplus.compat.IrisCompat;
+import com.gammaplus.dynamic.DarknessCurve;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
@@ -161,19 +162,19 @@ public final class ClothConfigScreen {
                 .build());
 
         category.addEntry(entries.startIntSlider(
-                        Component.translatable("option.gammaplus.dynamic_cave"),
-                        GammaModConfig.getDynamicCaveSkylightMax(), 0, 15)
-                .setDefaultValue(GammaModConfig.DEFAULT_DYNAMIC_CAVE_SKYLIGHT_MAX)
-                .setTooltip(Component.translatable("option.gammaplus.dynamic_cave.tooltip"))
-                .setSaveConsumer(GammaModConfig::setDynamicCaveSkylightMax)
+                        Component.translatable("option.gammaplus.dynamic_dark_light"),
+                        GammaModConfig.getDynamicDarkLightLevel(), 0, DarknessCurve.MAX_LIGHT - 1)
+                .setDefaultValue(GammaModConfig.DEFAULT_DYNAMIC_DARK_LIGHT)
+                .setTooltip(Component.translatable("option.gammaplus.dynamic_dark_light.tooltip"))
+                .setSaveConsumer(GammaModConfig::setDynamicDarkLightLevel)
                 .build());
 
         category.addEntry(entries.startIntSlider(
-                        Component.translatable("option.gammaplus.dynamic_night"),
-                        GammaModConfig.getDynamicNightDarknessMin(), 0, 4)
-                .setDefaultValue(GammaModConfig.DEFAULT_DYNAMIC_NIGHT_DARKNESS_MIN)
-                .setTooltip(Component.translatable("option.gammaplus.dynamic_night.tooltip"))
-                .setSaveConsumer(GammaModConfig::setDynamicNightDarknessMin)
+                        Component.translatable("option.gammaplus.dynamic_bright_light"),
+                        GammaModConfig.getDynamicBrightLightLevel(), 1, DarknessCurve.MAX_LIGHT)
+                .setDefaultValue(GammaModConfig.DEFAULT_DYNAMIC_BRIGHT_LIGHT)
+                .setTooltip(Component.translatable("option.gammaplus.dynamic_bright_light.tooltip"))
+                .setSaveConsumer(GammaModConfig::setDynamicBrightLightLevel)
                 .build());
     }
 

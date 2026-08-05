@@ -1,6 +1,7 @@
 package com.gammaplus.config;
 
 import com.gammaplus.GammaMod;
+import com.gammaplus.dynamic.DarknessCurve;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
@@ -10,6 +11,13 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * GammaModConfig — Manages mod configuration state and persistence.
@@ -48,10 +56,20 @@ public class GammaModConfig {
     public static final double  DEFAULT_DYNAMIC_HIGH    = 15.0;
     public static final double  DEFAULT_DYNAMIC_NORMAL  = 0.0;
     public static final double  DEFAULT_DYNAMIC_RATE    = 2.0;
-    public static final int     DEFAULT_DYNAMIC_CAVE_SKYLIGHT_MAX  = 0;
-    public static final int     DEFAULT_DYNAMIC_NIGHT_DARKNESS_MIN = 3;
+    /** Light level at or below which the boost is at full strength. Surface midnight sits at 4. */
+    public static final int     DEFAULT_DYNAMIC_DARK_LIGHT   = 4;
+    /** Light level at or above which no boost is applied. Well short of midday's 15. */
+    public static final int     DEFAULT_DYNAMIC_BRIGHT_LIGHT = 12;
 
     private static ConfigData config = new ConfigData();
+
+    /** Single-threaded so queued writes are serialised; daemon so it never holds up shutdown. */
+    private static final ExecutorService SAVE_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "GammaPlus-config-save");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private static final AtomicBoolean savePending = new AtomicBoolean(false);
 
     // === Getters ===
     public static boolean isGammaEnabled() { return config.gammaEnabled; }
@@ -72,16 +90,25 @@ public class GammaModConfig {
     public static double  getDynamicHighLevel()         { return config.dynamicHighLevel; }
     public static double  getDynamicNormalLevel()       { return config.dynamicNormalLevel; }
     public static double  getDynamicTransitionRate()    { return config.dynamicTransitionRate; }
-    public static int     getDynamicCaveSkylightMax()   { return config.dynamicCaveSkylightMax; }
-    public static int     getDynamicNightDarknessMin()  { return config.dynamicNightDarknessMin; }
+    public static int     getDynamicDarkLightLevel()    { return config.dynamicDarkLightLevel; }
+    public static int     getDynamicBrightLightLevel()  { return config.dynamicBrightLightLevel; }
 
     // === Dynamic Lighting setters ===
     public static void setDynamicLightingEnabled(boolean enabled) { config.dynamicLightingEnabled = enabled; }
     public static void setDynamicHighLevel(double level)        { config.dynamicHighLevel       = Math.max(0.0, Math.min(GAMMA_MAX, level)); }
     public static void setDynamicNormalLevel(double level)      { config.dynamicNormalLevel     = Math.max(0.0, Math.min(GAMMA_MAX, level)); }
     public static void setDynamicTransitionRate(double rate)    { config.dynamicTransitionRate  = Math.max(0.1, Math.min(10.0, rate)); }
-    public static void setDynamicCaveSkylightMax(int max)       { config.dynamicCaveSkylightMax = Math.max(0, Math.min(15, max)); }
-    public static void setDynamicNightDarknessMin(int min)      { config.dynamicNightDarknessMin= Math.max(0, Math.min(4, min)); }
+
+    /** Kept strictly below the bright threshold, since an inverted pair has no sensible ramp. */
+    public static void setDynamicDarkLightLevel(int level) {
+        config.dynamicDarkLightLevel = Math.max(0, Math.min(DarknessCurve.MAX_LIGHT - 1, level));
+        config.dynamicBrightLightLevel = Math.max(config.dynamicDarkLightLevel + 1, config.dynamicBrightLightLevel);
+    }
+
+    public static void setDynamicBrightLightLevel(int level) {
+        config.dynamicBrightLightLevel = Math.max(1, Math.min(DarknessCurve.MAX_LIGHT, level));
+        config.dynamicDarkLightLevel = Math.min(config.dynamicBrightLightLevel - 1, config.dynamicDarkLightLevel);
+    }
 
     // === JSON Serialization Model ===
     private static class ConfigData {
@@ -95,8 +122,14 @@ public class GammaModConfig {
         private double  dynamicHighLevel       = DEFAULT_DYNAMIC_HIGH;
         private double  dynamicNormalLevel     = DEFAULT_DYNAMIC_NORMAL;
         private double  dynamicTransitionRate  = DEFAULT_DYNAMIC_RATE;
-        private int     dynamicCaveSkylightMax = DEFAULT_DYNAMIC_CAVE_SKYLIGHT_MAX;
-        private int     dynamicNightDarknessMin = DEFAULT_DYNAMIC_NIGHT_DARKNESS_MIN;
+        private int     dynamicDarkLightLevel   = DEFAULT_DYNAMIC_DARK_LIGHT;
+        private int     dynamicBrightLightLevel = DEFAULT_DYNAMIC_BRIGHT_LIGHT;
+
+        // Superseded thresholds from the split cave/night model, boxed so that "absent from the
+        // file" is distinguishable from "present and zero". Read once by migrateThresholds() and
+        // then dropped, so they disappear from the file on the next save.
+        private Integer dynamicCaveSkylightMax;
+        private Integer dynamicNightDarknessMin;
 
         private void validate() {
             gammaLevel = Math.max(0.0, Math.min(GAMMA_MAX, gammaLevel));
@@ -104,9 +137,46 @@ public class GammaModConfig {
             dynamicHighLevel = Math.max(0.0, Math.min(GAMMA_MAX, dynamicHighLevel));
             dynamicNormalLevel = Math.max(0.0, Math.min(GAMMA_MAX, dynamicNormalLevel));
             dynamicTransitionRate = Math.max(0.1, Math.min(RATE_MAX, dynamicTransitionRate));
-            dynamicCaveSkylightMax = Math.max(0, Math.min(15, dynamicCaveSkylightMax));
-            dynamicNightDarknessMin = Math.max(0, Math.min(4, dynamicNightDarknessMin));
+
+            dynamicDarkLightLevel = Math.max(0, Math.min(DarknessCurve.MAX_LIGHT - 1, dynamicDarkLightLevel));
+            dynamicBrightLightLevel = Math.max(1, Math.min(DarknessCurve.MAX_LIGHT, dynamicBrightLightLevel));
+            if (dynamicBrightLightLevel <= dynamicDarkLightLevel) {
+                // An inverted pair leaves no ramp at all; give the bright end priority.
+                dynamicDarkLightLevel = dynamicBrightLightLevel - 1;
+            }
         }
+    }
+
+    /**
+     * Folds the retired cave/night thresholds into the effective-light thresholds that replaced
+     * them, so an existing config keeps behaving as its owner intended.
+     *
+     * <p>The old model asked two questions — "is sky light at or below {@code caveSkylightMax}?"
+     * and "is {@code getSkyDarken()} at or above {@code nightDarknessMin}?" — and the new one asks
+     * a single "how much light reaches the player?". The mapping follows from what each threshold
+     * meant in light-level terms:
+     *
+     * <ul>
+     *   <li>{@code caveSkylightMax} was already a light level at or below which to boost fully,
+     *       which is exactly {@code dynamicDarkLightLevel}.</li>
+     *   <li>{@code nightDarknessMin} counted <em>downward</em> from full daylight, so a threshold
+     *       of 3 meant "start boosting once light drops to 12" — hence {@code 15 - min}.</li>
+     * </ul>
+     */
+    private static void migrateThresholds(ConfigData data) {
+        if (data.dynamicCaveSkylightMax == null && data.dynamicNightDarknessMin == null) {
+            return;
+        }
+        if (data.dynamicCaveSkylightMax != null) {
+            data.dynamicDarkLightLevel = data.dynamicCaveSkylightMax;
+        }
+        if (data.dynamicNightDarknessMin != null) {
+            data.dynamicBrightLightLevel = DarknessCurve.MAX_LIGHT - data.dynamicNightDarknessMin;
+        }
+        data.dynamicCaveSkylightMax = null;
+        data.dynamicNightDarknessMin = null;
+        GammaMod.LOGGER.info("[Gamma Plus] Migrated Dynamic Lighting thresholds to the light-level model: dark<={}, bright>={}",
+                data.dynamicDarkLightLevel, data.dynamicBrightLightLevel);
     }
 
     /**
@@ -116,7 +186,7 @@ public class GammaModConfig {
      * first time this runs, so renaming the file doesn't silently reset anyone's setup.
      */
     public static void load() {
-        migrateLegacyConfig();
+        ConfigMigration.migrate(LEGACY_CONFIG_PATH, CONFIG_PATH);
 
         if (!Files.exists(CONFIG_PATH)) {
             GammaMod.LOGGER.info("[Gamma Plus] No config found, using defaults.");
@@ -124,9 +194,12 @@ public class GammaModConfig {
             return;
         }
 
+        boolean migrated = false;
         try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
             ConfigData loaded = GSON.fromJson(reader, ConfigData.class);
             if (loaded != null) {
+                migrated = loaded.dynamicCaveSkylightMax != null || loaded.dynamicNightDarknessMin != null;
+                migrateThresholds(loaded);
                 config = loaded;
                 config.validate();
                 GammaMod.LOGGER.info("[Gamma Plus] Config loaded — Gamma: {} ({}%), NV: {} ({}%), Dynamic: {}",
@@ -137,26 +210,51 @@ public class GammaModConfig {
         } catch (IOException | com.google.gson.JsonSyntaxException e) {
             GammaMod.LOGGER.error("[Gamma Plus] Failed to load config, using defaults.", e);
         }
+
+        if (migrated) {
+            save(); // Rewrite immediately so the retired keys stop lingering in the file.
+        }
     }
 
     /**
-     * Moves a pre-rename config file to the current filename.
+     * Queue a save without blocking the caller.
      *
-     * <p>A move rather than a copy-then-delete: the settings are never in a state where the
-     * only copy has been removed. If anything goes wrong the old file is left untouched and
-     * defaults are used, which is recoverable — the user can rename it by hand.
+     * <p>For saves triggered during gameplay — the G/N/L keybinds — where a synchronous write on
+     * the render thread can cost a frame if the disk is busy. Repeated toggles coalesce into a
+     * single write, and the single-threaded executor keeps writes from interleaving.
+     *
+     * <p>Deliberate saves from a settings screen still call {@link #save()} directly: the player
+     * is in a menu, so timing does not matter, and a synchronous write is one less way to lose
+     * the change.
      */
-    private static void migrateLegacyConfig() {
-        if (Files.exists(CONFIG_PATH) || !Files.exists(LEGACY_CONFIG_PATH)) {
-            return;
+    public static void saveAsync() {
+        if (!savePending.compareAndSet(false, true)) {
+            return; // A write is already queued; it will pick up this change too.
         }
         try {
-            Files.createDirectories(CONFIG_PATH.getParent());
-            Files.move(LEGACY_CONFIG_PATH, CONFIG_PATH);
-            GammaMod.LOGGER.info("[Gamma Plus] Migrated config {} -> {}", LEGACY_CONFIG_FILE, CONFIG_FILE);
-        } catch (IOException e) {
-            GammaMod.LOGGER.warn("[Gamma Plus] Could not migrate {} to {} — the old file was left in place.",
-                    LEGACY_CONFIG_FILE, CONFIG_FILE, e);
+            SAVE_EXECUTOR.execute(() -> {
+                savePending.set(false);
+                save();
+            });
+        } catch (RejectedExecutionException e) {
+            savePending.set(false);
+            save(); // Executor is shutting down — write on this thread rather than lose it.
+        }
+    }
+
+    /**
+     * Blocks briefly until any queued save has been written. Called when the client stops, so a
+     * toggle made moments before quitting is not lost with the daemon thread.
+     */
+    public static void flushPendingSave() {
+        try {
+            // The executor is single-threaded and FIFO, so an empty task completing means every
+            // save queued before it has already run.
+            SAVE_EXECUTOR.submit(() -> { }).get(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            GammaMod.LOGGER.warn("[Gamma Plus] Timed out flushing the config save.", e);
         }
     }
 
