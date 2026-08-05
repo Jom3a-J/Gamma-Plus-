@@ -72,6 +72,10 @@ public class GammaModConfigScreen extends OptionsSubScreen {
         this.list.addSmall(dynamicNormalLevel(), dynamicRate());
         this.list.addSmall(dynamicDarkLight(), dynamicBrightLight());
         this.list.addSmall(dynamicBlockLightInfluence());
+
+        // === General ===
+        this.list.addHeader(Component.translatable("category.gammaplus.general"));
+        this.list.addSmall(updateCheckEnabled());
     }
 
     @Override
@@ -194,6 +198,14 @@ public class GammaModConfigScreen extends OptionsSubScreen {
                 new OptionInstance.IntRange(0, 100),
                 (int) Math.round(GammaModConfig.getDynamicBlockLightInfluence() * 100),
                 value -> GammaModConfig.setDynamicBlockLightInfluence(value / 100.0));
+    }
+
+    private static OptionInstance<Boolean> updateCheckEnabled() {
+        return OptionInstance.createBoolean(
+                "option.gammaplus.update_check",
+                tooltip("option.gammaplus.update_check.tooltip"),
+                GammaModConfig.isUpdateCheckEnabled(),
+                GammaModConfig::setUpdateCheckEnabled);
     }
 
     // === Helpers ===

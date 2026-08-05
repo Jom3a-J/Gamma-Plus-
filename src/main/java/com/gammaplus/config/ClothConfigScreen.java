@@ -49,6 +49,7 @@ public final class ClothConfigScreen {
         buildGammaCategory(builder, entries);
         buildNightVisionCategory(builder, entries);
         buildDynamicCategory(builder, entries);
+        buildGeneralCategory(builder, entries);
 
         return builder.build();
     }
@@ -184,6 +185,19 @@ public final class ClothConfigScreen {
                 .setTextGetter(ClothConfigScreen::percentText)
                 .setTooltip(Component.translatable("option.gammaplus.dynamic_torch_influence.tooltip"))
                 .setSaveConsumer(value -> GammaModConfig.setDynamicBlockLightInfluence(fromPercent(value)))
+                .build());
+    }
+
+    private static void buildGeneralCategory(ConfigBuilder builder, ConfigEntryBuilder entries) {
+        ConfigCategory category = builder.getOrCreateCategory(
+                Component.translatable("category.gammaplus.general"));
+
+        category.addEntry(entries.startBooleanToggle(
+                        Component.translatable("option.gammaplus.update_check"),
+                        GammaModConfig.isUpdateCheckEnabled())
+                .setDefaultValue(GammaModConfig.DEFAULT_UPDATE_CHECK_ENABLED)
+                .setTooltip(Component.translatable("option.gammaplus.update_check.tooltip"))
+                .setSaveConsumer(GammaModConfig::setUpdateCheckEnabled)
                 .build());
     }
 

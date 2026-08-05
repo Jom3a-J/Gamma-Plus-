@@ -10,6 +10,7 @@
     "category.gammaplus.gamma": "Gamma Boost",
     "category.gammaplus.nightvision": "Night Vision",
     "category.gammaplus.dynamic": "Dynamic Lighting",
+    "category.gammaplus.general": "General",
 
     "option.gammaplus.gamma_enabled": "Enable Gamma Boost",
     "option.gammaplus.gamma_enabled.tooltip": "Master toggle for the brightness boost. Also bound to the G key.",
@@ -35,6 +36,9 @@
     "option.gammaplus.dynamic_bright_light.tooltip": "Light level at or above which no boost is applied. Midday is 15; lower this to keep the boost out of dim but usable areas.",
     "option.gammaplus.dynamic_torch_influence": "Torch Influence",
     "option.gammaplus.dynamic_torch_influence.tooltip": "How much torches and other placed light reduce the boost. 0% ignores them entirely, so only sky access and time of day matter. 100% counts them in full, which makes a single torch cancel the boost outright.",
+
+    "option.gammaplus.update_check": "Check for Updates",
+    "option.gammaplus.update_check.tooltip": "Ask Modrinth once per session whether a newer version exists, and mention it in chat when you join a world. Sends nothing but the mod name and version — no player, world or server data.",
 
     "text.gammaplus.gamma.shader_warning": "⚠ Gamma Boost has no effect while a shader pack is active — use Night Vision instead.",
     "text.gammaplus.nightvision.shader_note": "✓ Night Vision works with Iris shader packs.",

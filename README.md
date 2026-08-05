@@ -21,9 +21,11 @@ By combining traditional brightness modifications with physical transition model
 * **Client-Side Safety:** Uses a custom client-only potion bridge that doesn't trigger server updates.
 
 ### 3. Dynamic Lighting (Cave & Surface Night Adaptation)
-* **Continuous Probing:** Measures surrounding light using a 5-block spatial average cross-probe (Center, North, South, East, West) at the player's eye level, preventing boundary collisions on slabs or path blocks.
+* **Unified Light Measurement:** Instead of asking "am I in a cave?" and "is it night?" as two separate tests, a single reading answers both — the light *actually reaching you*, combining block light with sky light adjusted for the time of day. A cave reads dark because it has no sky access at any hour, which is the real distinction; a torch-lit cave correctly reads as lit.
+* **Five-Point Cross Probe:** Samples the player's eye position and its four horizontal neighbours (North, South, East, West), taking the **brightest** of them. Light stored inside a solid block is zero, so taking the maximum stops standing beside a wall from registering as a cave.
+* **Continuous Sunset:** Reads the floating-point sky-light attribute that vanilla rounds off to produce `getSkyDarken()`, so dusk ramps smoothly rather than stepping through eleven discrete levels.
 * **Quadratic Darkness Curve:** Matches human visual perception (logarithmic light response) to smoothly blend brightness in intermediate zones like forest canopies, thunderstorms, and cave mouths.
-* **Night-Cave Transition Dip Guard:** Intelligently balances night darkness and cave depth so that entering a cave at night maintains a consistent, full-strength illumination curve with zero visual flickering.
+* **Adjustable Torch Influence:** Placed light dims the boost proportionally rather than cancelling it outright — tunable all the way from *ignore torches entirely* to *a single torch switches the boost off*.
 
 ### 4. Critically Damped Spring Smoothing
 * **No Sudden Jumps:** Brightness transitions are calculated using the exact closed-form analytical solution of a critically damped spring, ensuring perfectly smooth ease-in and ease-out curves:
@@ -31,15 +33,22 @@ By combining traditional brightness modifications with physical transition model
 * **Asymmetric Visual Adaptation:**
   * **Dark Adaptation (Bright → Dark):** Replicating human biology, spring speed scales down to $60\%$ when entering dark areas, allowing brightness to build up gradually over 4–5 seconds.
   * **Light Adaptation (Dark → Bright):** Scales up to $150\%$ when exiting caves, clearing brightness rapidly to prevent screen bleaching.
-* **Adjustable Speed:** The natural frequency ($\omega$) of the spring is adjustable live via the **DL Speed** slider.
+* **Adjustable Speed:** The natural frequency ($\omega$) of the spring is adjustable live via the **Transition Speed** slider.
 
 ### 5. Iris Shaders Compatibility
 * **Dynamic Shader Uniform Integration:** When shader packs are enabled, traditional lightmap modification has no effect. Gamma Plus hooks into `GameRenderer.nightVisionScale` using reflection to dynamically scale the `nightVision` uniform sent to the GPU.
 * **Shader-Driven Transitions:** Both manual night vision and dynamic lighting scale smoothly under shaders, bringing cinematic transitions to high-end resource packs.
 
-### 6. Allocation-Free Performance
+### 6. Update Notifications
+* **Quiet Heads-Up:** Checks Modrinth once per session and, shortly after you join a world or server, mentions in chat if a newer version exists — with a clickable link. Waits a moment after joining so it lands after the server's own welcome messages instead of being scrolled away.
+* **Never In The Way:** The request runs on a background thread with hard timeouts, and every failure path — offline, rate-limited, malformed response — simply shows nothing. It can neither stall a frame nor produce an error.
+* **Nothing About You:** The request carries only a User-Agent naming the mod and its version. No player, world, or server information is sent. Turn it off entirely with **Check for Updates** in the settings.
+
+### 7. Allocation-Free Performance
 * **Zero Garbage Collection Pressure:** Recycled `ThreadLocal` mutable block positions (`MutableBlockPos`) are cached and reused on the main rendering tick loop, making the environment light probe path completely allocation-free.
-* **Throttled reflection:** Checks for active Iris shaders are throttled to once every 200ms (instead of every frame), eliminating CPU overhead.
+* **Throttled reflection:** Checks for active Iris shaders are throttled to once every 200ms (instead of every frame), and the result is shared by every call site rather than cached per-caller.
+* **Zero Idle Cost:** The lightmap is only rebuilt and re-uploaded while a feature is actually driving it, so an install with every toggle switched off costs nothing per frame.
+* **Off-Thread Config Writes:** Hotkey toggles persist on a background thread and coalesce, so rapid switching never stalls a frame on disk I/O.
 
 ---
 
@@ -51,24 +60,33 @@ Gamma Plus registers custom controls in the standard Minecraft keybind settings 
 | **Toggle Gamma** | Turn fullbright (Gamma Boost) on or off | `G` |
 | **Toggle Night Vision** | Turn custom-intensity night vision on or off | `N` |
 | **Toggle Dynamic** | Turn ambient cave/night dynamic lighting on or off | `L` |
+| **Open Settings** | Open the Gamma Plus settings screen without leaving the game | `K` |
 
 *Note: All keybindings can be fully customized in **Options > Controls > Key Binds**.*
 
 ---
 
 ## ⚙️ Configuration Options
-With **Mod Menu** installed, access the configuration screen to adjust the following variables:
+Press **`K`** in-game — or use **Mod Menu** — to open the settings screen and adjust the following:
 
 ### Core Settings
-* **Gamma Level (1.0 - 15.0):** The target multiplier for standard fullbright (defaults to `15.0`).
-* **Night Vision Intensity (0.0 - 1.0):** The shader weight and brightness limit when night vision is active (defaults to `1.0`).
+* **Gamma Level (0% - 1500%):** The target multiplier for standard fullbright (defaults to `1500%`).
+* **Night Vision Intensity (10% - 100%):** The shader weight and brightness limit when night vision is active (defaults to `100%`). Floored at 10% so an enabled effect is always visibly doing something.
 
 ### Dynamic Lighting (DL) Settings
-* **DL Speed (0.5 - 10.0):** Natural spring frequency ($\omega$). Higher values make light adjustments snappy; lower values create a cinematic fade (defaults to `3.0`).
-* **DL Night Darkness Min (0.0 - 1.0):** Adjusts how dark the surface must be to trigger nighttime dynamic lighting.
-* **DL Cave Skylight Max (0.0 - 15.0):** The sky light threshold where cave darkness begins mapping.
-* **DL Low Light Level (0.0 - 1.0):** Target brightness in pitch-black conditions (defaults to `1.0`).
-* **DL High Light Level (0.0 - 1.0):** Target brightness in fully lit daytime conditions (defaults to `0.0`).
+* **Dark Level (0% - 1500%):** Target brightness in pitch-black conditions (defaults to `1500%`).
+* **Bright Level (0% - 1500%):** Target brightness in fully lit conditions (defaults to `0%`, leaving vanilla brightness untouched).
+* **Transition Speed (0.5 - 10.0):** Natural spring frequency ($\omega$). Higher values make light adjustments snappy; lower values create a cinematic fade (defaults to `2.0`).
+* **Full Boost Below Light (0 - 14):** Light level at or below which the boost reaches full strength (defaults to `4`). An unlit cave sits at `0`; open ground at midnight sits at about `4`.
+* **No Boost Above Light (1 - 15):** Light level at or above which no boost is applied (defaults to `12`). Midday is `15`.
+* **Torch Influence (0% - 100%):** How much torches and other placed light count toward "it is bright here" (defaults to `50%`). At `0%` placed light is ignored entirely and only sky access and time of day matter; at `100%` a single torch cancels the boost outright.
+
+### General
+* **Check for Updates:** Whether to ask Modrinth once per session about newer versions (defaults to `on`). Turning it off stops the mod making any outbound network request at all.
+
+Settings are stored in `config/gammaplus.json`. Configs written by an earlier build are migrated automatically on first load, so upgrading never resets your setup.
+
+> **Tip:** At the defaults, an unlit cave and open ground at midnight both receive the full boost. To make caves brighter than open night, lower **Full Boost Below Light** to `0` — a cave stays at 100% while midnight drops to roughly 44%.
 
 ---
 
@@ -76,15 +94,17 @@ With **Mod Menu** installed, access the configuration screen to adjust the follo
 
 ### 1. Required Mods
 * **Fabric API:** Place the **Fabric API** jar in your `.minecraft/mods/` folder. This is required to register keybindings and process game-tick events.
-* *Note: Unlike many other mods, Gamma Plus **does NOT require Cloth Config** to run. The config screen is built using vanilla Minecraft UI widgets, keeping the mod lightweight and dependency-free.*
+* *Note: Unlike many other mods, Gamma Plus **does NOT require Cloth Config** to run. The settings screen is built on vanilla's own options framework, keeping the mod lightweight and dependency-free.*
 
-### 2. Highly Recommended Mods
-* **Mod Menu:** Required if you want to access the settings screen in-game and adjust config sliders (speed, thresholds, intensity levels).
+### 2. Optional Mods
+* **Cloth Config API:** If installed, Gamma Plus automatically uses a richer tabbed settings screen with per-setting reset arrows and an explicit save/cancel. If absent, the built-in screen is used instead — nothing is lost.
+* **Mod Menu:** Adds a config button beside Gamma Plus in the mod list. Entirely optional, since the **`K`** hotkey opens the same screen in-game.
 
 
 ### 3. Setup Steps:
-1. Place `GammaPlus-1.0.0.jar` and the latest **Fabric API** (and optionally **Mod Menu**) inside your `.minecraft/mods/` folder.
+1. Place `GammaPlus-1.0.0.jar` and the latest **Fabric API** (and optionally **Cloth Config** and **Mod Menu**) inside your `.minecraft/mods/` folder.
 2. Launch your Minecraft client.
+3. Press **`K`** in-game to open the settings, or use `G` / `N` / `L` to toggle features directly.
 
 ---
 

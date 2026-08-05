@@ -5,19 +5,25 @@ import com.gammaplus.config.ConfigScreens;
 import com.gammaplus.config.GammaModConfig;
 import com.gammaplus.dynamic.DynamicLightingState;
 import com.gammaplus.dynamic.EnvironmentProbe;
+import com.gammaplus.update.UpdateChecker;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.loader.api.Version;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
+
+import java.net.URI;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -59,6 +65,15 @@ public class GammaModClient implements ClientModInitializer {
      * no effect of that type is present, so the reference stays valid.
      */
     private static MobEffectInstance fakeNvInstance = null;
+
+    /**
+     * Ticks to wait after joining before showing the update notice, so it lands after the join
+     * spam (server MOTD, welcome messages) rather than being scrolled away by it.
+     */
+    private static final int NOTICE_DELAY_TICKS = 60;
+
+    /** Ticks since the player joined, or {@code -1} when not waiting to post a notice. */
+    private static int ticksSinceJoin = -1;
 
     @Override
     public void onInitializeClient() {
@@ -104,6 +119,14 @@ public class GammaModClient implements ClientModInitializer {
         // still reaches disk.
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> GammaModConfig.flushPendingSave());
 
+        // Ask about updates once, in the background, while the player is still at the menu — so
+        // the answer is usually ready by the time they load a world.
+        UpdateChecker.startAsync();
+        // Start the clock unconditionally rather than only when a result is already in: on a slow
+        // connection the check can still be in flight when the world finishes loading, and a
+        // notice that arrives a second late is far better than one silently dropped.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> ticksSinceJoin = 0);
+
         GammaMod.LOGGER.info("[Gamma Plus] Client initialized — Keybindings registered (G=Gamma, N=NightVision, L=DynamicLighting, K=Settings)");
     }
 
@@ -114,8 +137,11 @@ public class GammaModClient implements ClientModInitializer {
             // to a player entity that no longer exists.
             dynamicState.reset();
             fakeNvInstance = null;
+            ticksSinceJoin = -1;
             return;
         }
+
+        tickUpdateNotice(client);
 
         // Handle keybind presses
         handleKeybinds(client);
@@ -126,6 +152,45 @@ public class GammaModClient implements ClientModInitializer {
         // Recompute the Dynamic Lighting target for this tick.
         // (The smoother itself advances in the Mixin's per-frame loop.)
         updateDynamicTarget(client);
+    }
+
+    /**
+     * Shows the update notice once the post-join delay has elapsed.
+     *
+     * <p>Delivered from the tick loop rather than straight from the join event for two reasons:
+     * the check may still have been in flight when the player joined, and chat sent during the
+     * join handler tends to be buried by the server's own welcome messages.
+     */
+    private void tickUpdateNotice(Minecraft client) {
+        if (ticksSinceJoin < 0) return;
+        if (++ticksSinceJoin < NOTICE_DELAY_TICKS) return;
+
+        // Past the delay, keep looking each tick until the check produces an answer — two volatile
+        // reads, and it stops the moment there is nothing left to say.
+        if (!UpdateChecker.hasPendingNotice()) {
+            if (UpdateChecker.isFinished()) ticksSinceJoin = -1; // Up to date; stop watching.
+            return;
+        }
+        ticksSinceJoin = -1;
+        if (!UpdateChecker.markAnnounced()) return;
+
+        String latest = UpdateChecker.getNewerVersion();
+        Version current = UpdateChecker.currentVersion();
+        String url = UpdateChecker.getProjectUrl();
+
+        Component link = Component.literal(url).withStyle(style -> style
+                .withColor(ChatFormatting.AQUA)
+                .withUnderlined(true)
+                .withClickEvent(new ClickEvent.OpenUrl(URI.create(url))));
+
+        client.gui.hud.getChat().addClientSystemMessage(
+                Component.literal("[Gamma Plus] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal("Version " + latest + " is available")
+                                .withStyle(ChatFormatting.WHITE))
+                        .append(Component.literal(" (you have "
+                                        + (current == null ? "?" : current.getFriendlyString()) + ") ")
+                                .withStyle(ChatFormatting.GRAY))
+                        .append(link));
     }
 
     private void handleKeybinds(Minecraft client) {

@@ -68,6 +68,8 @@ public class GammaModConfig {
      * half boost while a fully lit room still drops well below that.
      */
     public static final double  DEFAULT_DYNAMIC_BLOCK_LIGHT_INFLUENCE = 0.5;
+    /** Whether to ask Modrinth once per session whether a newer build exists. */
+    public static final boolean DEFAULT_UPDATE_CHECK_ENABLED = true;
 
     private static ConfigData config = new ConfigData();
 
@@ -101,6 +103,8 @@ public class GammaModConfig {
     public static int     getDynamicDarkLightLevel()    { return config.dynamicDarkLightLevel; }
     public static int     getDynamicBrightLightLevel()  { return config.dynamicBrightLightLevel; }
     public static double  getDynamicBlockLightInfluence() { return config.dynamicBlockLightInfluence; }
+    public static boolean isUpdateCheckEnabled()          { return config.updateCheckEnabled; }
+    public static void setUpdateCheckEnabled(boolean enabled) { config.updateCheckEnabled = enabled; }
 
     // === Dynamic Lighting setters ===
     public static void setDynamicLightingEnabled(boolean enabled) { config.dynamicLightingEnabled = enabled; }
@@ -138,6 +142,7 @@ public class GammaModConfig {
         private int     dynamicDarkLightLevel   = DEFAULT_DYNAMIC_DARK_LIGHT;
         private int     dynamicBrightLightLevel = DEFAULT_DYNAMIC_BRIGHT_LIGHT;
         private double  dynamicBlockLightInfluence = DEFAULT_DYNAMIC_BLOCK_LIGHT_INFLUENCE;
+        private boolean updateCheckEnabled = DEFAULT_UPDATE_CHECK_ENABLED;
 
         // Superseded thresholds from the split cave/night model, boxed so that "absent from the
         // file" is distinguishable from "present and zero". Read once by migrateThresholds() and
