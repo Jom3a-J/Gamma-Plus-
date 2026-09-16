@@ -35,3 +35,8 @@ nul
 # Markdown files (per user request to not upload md files)
 *.md
 docs/
+
+# Tracked despite the *.md rule above
+!README.md
+!CHANGELOG.md
+!GammaPlus.md
