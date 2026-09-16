@@ -1,5 +1,5 @@
 # Gamma Plus ⚡
-> Advanced Client-Side Brightness, Night Vision & Dynamic Lighting Utility for Minecraft 26.2 (Fabric / Java 25)
+> Advanced Client-Side Brightness, Night Vision & Dynamic Lighting Utility for Minecraft 26.3 (Fabric / Java 25)
 
 ---
 

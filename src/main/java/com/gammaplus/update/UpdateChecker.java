@@ -134,7 +134,7 @@ public final class UpdateChecker {
 
     /** Returns the response body, or {@code null} on any non-200 or transport failure. */
     private static String fetch(Version current) throws Exception {
-        // Ask only for builds matching this Minecraft version and loader, so a player on 26.2 is
+        // Ask only for builds matching this Minecraft version and loader, so a player on 26.3 is
         // never told about a release that does not run for them.
         String gameVersion = FabricLoader.getInstance().getModContainer("minecraft")
                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
