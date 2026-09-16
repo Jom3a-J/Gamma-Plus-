@@ -25,7 +25,6 @@ import net.minecraft.ChatFormatting;
 
 import java.net.URI;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * GammaModClient — Client-side entrypoint.
@@ -83,22 +82,22 @@ public class GammaModClient implements ClientModInitializer {
         // Register keymappings
         gammaToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.gammaplus.toggle_gamma",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_G,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_G,
                 CATEGORY
         ));
 
         nightVisionToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.gammaplus.toggle_nightvision",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_N,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_N,
                 CATEGORY
         ));
 
         dynamicLightingToggleKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.gammaplus.toggle_dynamic",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_L,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_L,
                 CATEGORY
         ));
 
@@ -107,8 +106,8 @@ public class GammaModClient implements ClientModInitializer {
         // ("key.friends") binding.
         openSettingsKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.gammaplus.open_settings",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_K,
+                InputConstants.Type.KEYBOARD,
+                InputConstants.KEY_K,
                 CATEGORY
         ));
 
